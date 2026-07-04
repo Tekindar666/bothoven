@@ -93,16 +93,17 @@ Discord command
 
 `utils/music_download.rs` owns cache lookup/download. It always fetches metadata first, then skips the audio download when the expected `.opus` file already exists.
 
-Planned module split:
+Current module split:
 
 ```text
-discord/message_handler.rs  parse Discord events and commands
-player/mod.rs              playlist state and controls
-player/media_streamer.rs   Songbird File::new(...) playback bridge
-utils/music_download.rs    yt-dlp metadata/cache/download wrapper
+discord/message_handler.rs  DiscordHandler and slash-command routing
+media/client.rs             Serenity client setup + Songbird registration
+media/player.rs             MediaItem type, playlist state, and controls
+media/media_streamer.rs     planned Songbird File::new(...) playback bridge
+utils/music_download.rs     yt-dlp metadata/cache/download wrapper
 ```
 
-Song end handling will use a Songbird `TrackEvent::End` handler after manual playback works.
+Song end handling will use a Songbird `TrackEvent::End` handler after manual playback works. Command parsing stays in `discord/`; media source swaps stay in `media/`.
 
 ## Development
 

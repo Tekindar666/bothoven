@@ -1,5 +1,4 @@
 use super::*;
-use std::path::PathBuf;
 
 fn item(id: &str) -> MediaItem {
     MediaItem {

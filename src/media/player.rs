@@ -1,7 +1,17 @@
-use crate::types::MediaItem;
+use std::path::PathBuf;
 
 #[cfg(test)]
+#[path = "player_tests.rs"]
 mod tests;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MediaItem {
+    pub id: String,
+    pub title: String,
+    pub duration_seconds: u64,
+    pub url: String,
+    pub file_path: PathBuf,
+}
 
 pub struct Player {
     media_items: Vec<MediaItem>,

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use serde::Deserialize;
 use tokio::process::Command;
 
-use crate::types::MediaItem;
+use crate::media::player::MediaItem;
 
 pub struct YtDlp {
     binary: PathBuf,
