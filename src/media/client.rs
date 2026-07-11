@@ -8,7 +8,7 @@ pub async fn build_client(token: &str) -> serenity::Result<Client> {
     let intents = GatewayIntents::GUILDS | GatewayIntents::GUILD_VOICE_STATES;
 
     Client::builder(token, intents)
-        .event_handler(DiscordHandler)
+        .event_handler(DiscordHandler::new())
         .register_songbird()
         .await
 }
