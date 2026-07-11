@@ -9,13 +9,6 @@ impl DiscordHandler {
     pub fn new() -> Self {
         Self
     }
-
-    fn response(responseBody: String) -> Result<String, String> {
-        // create a response to discord based.
-        // takes in a string for the response
-        // could potentially need to take in a token or id for the server to return to.
-        Ok(String::from("successfully return to discord"))
-    }
 }
 
 #[async_trait]

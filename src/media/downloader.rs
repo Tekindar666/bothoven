@@ -11,6 +11,29 @@ pub struct YtDlp {
     cache_dir: PathBuf,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Query {
+    Url(String),
+    Search(String),
+}
+
+impl Query {
+    pub fn parse(input: &str) -> Self {
+        if input.starts_with("https://") || input.starts_with("http://") {
+            Self::Url(input.to_string())
+        } else {
+            Self::Search(input.to_string())
+        }
+    }
+
+    fn into_yt_dlp_input(self) -> String {
+        match self {
+            Self::Url(url) => url,
+            Self::Search(term) => format!("ytsearch1:{term}"),
+        }
+    }
+}
+
 #[derive(Deserialize)]
 struct YtDlpInfo {
     id: String,
@@ -35,12 +58,12 @@ impl YtDlp {
         }
     }
 
-    pub async fn download_audio(&self, query: &str) -> Result<MediaItem, String> {
+    pub async fn download_audio(&self, query: Query) -> Result<MediaItem, String> {
         tokio::fs::create_dir_all(&self.cache_dir)
             .await
             .map_err(|err| format!("failed to create cache dir: {err}"))?;
 
-        let input = yt_dlp_input(query);
+        let input = query.into_yt_dlp_input();
         let info = self.fetch_info(&input).await?;
         let file_path = self.cached_file_path(&info.id);
 
@@ -133,18 +156,6 @@ impl YtDlp {
     }
 }
 
-fn yt_dlp_input(input: &str) -> String {
-    if looks_like_url(input) {
-        input.to_string()
-    } else {
-        format!("ytsearch1:{input}")
-    }
-}
-
-fn looks_like_url(input: &str) -> bool {
-    input.starts_with("https://") || input.starts_with("http://")
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,13 +164,29 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
-    fn builds_yt_dlp_input() {
+    fn query_parse_classifies_url_and_search() {
         assert_eq!(
-            yt_dlp_input("https://example.com/song"),
+            Query::parse("https://example.com/song"),
+            Query::Url("https://example.com/song".to_string())
+        );
+        assert_eq!(
+            Query::parse("http://example.com/song"),
+            Query::Url("http://example.com/song".to_string())
+        );
+        assert_eq!(
+            Query::parse("never gonna give you up"),
+            Query::Search("never gonna give you up".to_string())
+        );
+    }
+
+    #[test]
+    fn query_into_yt_dlp_input_formats_for_search() {
+        assert_eq!(
+            Query::Url("https://example.com/song".to_string()).into_yt_dlp_input(),
             "https://example.com/song"
         );
         assert_eq!(
-            yt_dlp_input("never gonna give you up"),
+            Query::Search("never gonna give you up".to_string()).into_yt_dlp_input(),
             "ytsearch1:never gonna give you up"
         );
     }
@@ -221,7 +248,10 @@ printf '%s\n' "$path"
         fs::set_permissions(&binary, fs::Permissions::from_mode(0o755)).unwrap();
 
         let downloader = YtDlp::new(binary, None, cache.clone());
-        let track = downloader.download_audio("lofi beats").await.unwrap();
+        let track = downloader
+            .download_audio(Query::parse("lofi beats"))
+            .await
+            .unwrap();
 
         assert_eq!(track.id, "fake-id");
         assert_eq!(track.title, "Fake Song");
@@ -266,7 +296,10 @@ exit 42
         fs::set_permissions(&binary, fs::Permissions::from_mode(0o755)).unwrap();
 
         let downloader = YtDlp::new(binary, None, cache.clone());
-        let track = downloader.download_audio("lofi beats").await.unwrap();
+        let track = downloader
+            .download_audio(Query::parse("lofi beats"))
+            .await
+            .unwrap();
 
         assert_eq!(track.file_path, cached_file);
         assert_eq!(
@@ -296,7 +329,7 @@ exit 42
         );
 
         let track = downloader
-            .download_audio("never gonna give you up")
+            .download_audio(Query::parse("never gonna give you up"))
             .await
             .unwrap();
 
