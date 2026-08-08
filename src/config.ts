@@ -7,6 +7,9 @@ const configSchema = z.object({
   YTDL_BINARY: z.string().min(1).default(".venv/bin/yt-dlp"),
   FFMPEG_BINARY: z.string().min(1).optional(),
   MUSIC_CACHE_DIR: z.string().min(1).default(".cache/music"),
+  MUSIC_CACHE_MAX_MB: z.coerce.number().int().positive().default(2048),
+  SPOTIFY_CLIENT_ID: z.string().min(1),
+  SPOTIFY_CLIENT_SECRET: z.string().min(1),
 });
 
 const parsed = configSchema.safeParse(process.env);

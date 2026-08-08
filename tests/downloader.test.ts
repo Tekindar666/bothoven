@@ -45,7 +45,11 @@ fs.writeFileSync(output, "fake opus");
     );
     await chmod(binary, 0o755);
 
-    const downloader = new YtDlp({ binary, cacheDir });
+    const downloader = new YtDlp({
+      binary,
+      cacheDir,
+      maxBytes: 2 * 1024 * 1024 * 1024,
+    });
     const first = await downloader.downloadAudio("lofi beats");
     const second = await downloader.downloadAudio("lofi beats");
     const fromUrl = await downloader.downloadAudio(videoUrl);

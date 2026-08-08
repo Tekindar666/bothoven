@@ -30,6 +30,18 @@ export const commands: RESTPostAPIApplicationCommandsJSONBody[] = [
     ],
   },
   {
+    name: "playlist",
+    description: "Add a Spotify playlist to the queue (first 100 tracks)",
+    options: [
+      {
+        name: "query",
+        description: "spotify playlist link or id",
+        type: ApplicationCommandOptionType.String,
+        required: true,
+      },
+    ],
+  },
+  {
     name: "play",
     description: "Play the current queue in your voice channel",
   },

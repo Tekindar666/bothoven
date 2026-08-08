@@ -1,5 +1,12 @@
 import { execFile } from "node:child_process";
-import { access, mkdir } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  readdir,
+  stat,
+  unlink,
+  utimes,
+} from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { z } from "zod";
@@ -25,10 +32,19 @@ export interface DownloaderOptions {
   binary: string;
   ffmpeg?: string;
   cacheDir: string;
+  maxBytes: number;
 }
 
 export class YtDlp {
+  // files that must never be evicted (e.g. currently queued/playing)
+  #pinned: () => Iterable<string> = () => [];
+
   constructor(private readonly options: DownloaderOptions) {}
+
+  // Register a provider for paths that must survive eviction.
+  setPinnedProvider(provider: () => Iterable<string>): void {
+    this.#pinned = provider;
+  }
 
   async downloadAudio(query: string): Promise<MediaItem> {
     await mkdir(this.options.cacheDir, { recursive: true });
@@ -40,6 +56,8 @@ export class YtDlp {
     const cacheHit = await exists(filePath);
     if (cacheHit) {
       console.info(`[media] cache hit id=${info.id} path=${filePath}`);
+      // mark as recently used so replays are not evicted first
+      await touch(filePath);
     } else {
       console.info(
         `[media] downloading id=${info.id} title=${JSON.stringify(info.title)}`,
@@ -54,6 +72,8 @@ export class YtDlp {
     if (!cacheHit) {
       console.info(`[media] cached id=${info.id} path=${filePath}`);
     }
+
+    await this.enforceCacheLimit(filePath);
 
     return {
       id: info.id,
@@ -103,6 +123,62 @@ export class YtDlp {
     await this.run(args);
   }
 
+  // Evict least-recently-used cache files until under the size cap.
+  // Never removes the just-downloaded file or any pinned (queued) file.
+  private async enforceCacheLimit(justDownloaded: string): Promise<void> {
+    let entries: string[];
+    try {
+      entries = await readdir(this.options.cacheDir);
+    } catch {
+      return;
+    }
+
+    const stats = await Promise.all(
+      entries
+        .filter((name) => name.endsWith(".opus"))
+        .map(async (name) => {
+          const fp = path.join(this.options.cacheDir, name);
+          try {
+            const s = await stat(fp);
+            return { fp, size: s.size, mtime: s.mtimeMs };
+          } catch {
+            return undefined;
+          }
+        }),
+    );
+
+    const files = stats.filter(
+      (s): s is { fp: string; size: number; mtime: number } => s !== undefined,
+    );
+
+    let total = files.reduce((sum, s) => sum + s.size, 0);
+    if (total <= this.options.maxBytes) {
+      return;
+    }
+
+    const pinned = new Set<string>([
+      path.resolve(justDownloaded),
+      ...[...this.#pinned()].map((p) => path.resolve(p)),
+    ]);
+
+    const evictable = files
+      .filter((s) => !pinned.has(path.resolve(s.fp)))
+      .sort((a, b) => a.mtime - b.mtime); // oldest use first
+
+    for (const entry of evictable) {
+      if (total <= this.options.maxBytes) {
+        break;
+      }
+      try {
+        await unlink(entry.fp);
+        total -= entry.size;
+        console.info(`[media] evicted path=${entry.fp} size=${entry.size}`);
+      } catch (error) {
+        console.warn(`[media] eviction failed path=${entry.fp}`, error);
+      }
+    }
+  }
+
   private async run(
     args: string[],
   ): Promise<{ stdout: string; stderr: string }> {
@@ -118,6 +194,15 @@ export class YtDlp {
       }
       throw error;
     }
+  }
+}
+
+async function touch(filePath: string): Promise<void> {
+  const now = new Date();
+  try {
+    await utimes(filePath, now, now);
+  } catch {
+    // best effort — a failed touch only affects eviction ordering
   }
 }
 
