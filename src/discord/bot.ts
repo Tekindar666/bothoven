@@ -68,8 +68,29 @@ export class Bot {
         case "enqueue":
           await this.enqueue(interaction);
           return;
+        case "dequeue":
+          await this.dequeue(interaction);
+          return;
         case "play":
           await this.play(interaction);
+          return;
+        case "pause":
+          await this.pause(interaction);
+          return;
+        case "next":
+          await this.next(interaction);
+          return;
+        case "prev":
+          await this.previous(interaction);
+          return;
+        case "clear":
+          await this.clear(interaction);
+          return;
+        case "loop":
+          await this.loop(interaction);
+          return;
+        case "shuffle":
+          await this.shuffle(interaction);
           return;
       }
     } catch (error) {
@@ -82,7 +103,10 @@ export class Bot {
       if (interaction.deferred || interaction.replied) {
         await interaction.editReply(`Command failed: ${message}`);
       } else {
-        await interaction.reply({ content: `Command failed: ${message}`, ephemeral: true });
+        await interaction.reply({
+          content: `Command failed: ${message}`,
+          ephemeral: true,
+        });
       }
     }
   }
@@ -105,12 +129,21 @@ export class Bot {
     const playlist = this.#queue
       .items()
       .map((queued, index) => {
-        const current = index === this.#queue.currentIndex() ? " ← current" : "";
+        const current =
+          index === this.#queue.currentIndex() ? " ← current" : "";
         return `${index + 1}. ${queued.title}${current}`;
       })
       .join("\n");
 
     await interaction.editReply(`Queued: ${item.title}\n\n${playlist}`);
+  }
+
+  private async dequeue(
+    interaction: ChatInputCommandInteraction,
+  ): Promise<void> {
+    const position = interaction.options.getInteger("index", true);
+    const item = this.#playback.dequeue(position - 1);
+    await interaction.reply(`Dequeued ${position}. ${item.title}`);
   }
 
   private async play(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -127,5 +160,43 @@ export class Bot {
     await interaction.deferReply();
     const item = await this.#playback.start(interaction.guild, channel.id);
     await interaction.editReply(`Playing: ${item.title}`);
+  }
+
+  private async pause(interaction: ChatInputCommandInteraction): Promise<void> {
+    const state = this.#playback.togglePause();
+    await interaction.reply(`Playback ${state}.`);
+  }
+
+  private async next(interaction: ChatInputCommandInteraction): Promise<void> {
+    const item = this.#playback.next();
+    const message = item
+      ? `Playing next: ${item.title}`
+      : "Reached the end of the playlist and disconnected.";
+    await interaction.reply(message);
+  }
+
+  private async previous(
+    interaction: ChatInputCommandInteraction,
+  ): Promise<void> {
+    const item = this.#playback.previous();
+    await interaction.reply(`Playing previous: ${item.title}`);
+  }
+
+  private async clear(interaction: ChatInputCommandInteraction): Promise<void> {
+    const count = this.#playback.clear();
+    await interaction.reply(`Cleared ${count} song${count === 1 ? "" : "s"}.`);
+  }
+  private async loop(interaction: ChatInputCommandInteraction): Promise<void> {
+    const enabled = this.#playback.toggleLoop();
+    await interaction.reply(`Loop ${enabled ? "enabled" : "disabled"}.`);
+  }
+
+  private async shuffle(
+    interaction: ChatInputCommandInteraction,
+  ): Promise<void> {
+    const count = this.#playback.shuffle();
+    await interaction.reply(
+      `Shuffled ${count} upcoming song${count === 1 ? "" : "s"}.`,
+    );
   }
 }

@@ -17,7 +17,44 @@ export const commands: RESTPostAPIApplicationCommandsJSONBody[] = [
     ],
   },
   {
+    name: "dequeue",
+    description: "Remove a song from the playlist",
+    options: [
+      {
+        name: "index",
+        description: "Playlist position to remove",
+        type: ApplicationCommandOptionType.Integer,
+        required: true,
+        min_value: 1,
+      },
+    ],
+  },
+  {
     name: "play",
     description: "Play the current queue in your voice channel",
+  },
+  {
+    name: "pause",
+    description: "Pause or resume the current song",
+  },
+  {
+    name: "next",
+    description: "Play the next song",
+  },
+  {
+    name: "prev",
+    description: "Play the previous song",
+  },
+  {
+    name: "clear",
+    description: "Clear the playlist and disconnect",
+  },
+  {
+    name: "loop",
+    description: "Toggle looping the current song",
+  },
+  {
+    name: "shuffle",
+    description: "Shuffle the upcoming songs",
   },
 ];

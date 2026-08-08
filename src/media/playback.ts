@@ -20,11 +20,12 @@ export class Playback {
   #connection: VoiceConnection | undefined;
   #guild: Guild | undefined;
   #active = false;
+  #loop = false;
 
   constructor(private readonly queue: Player) {
     this.#audioPlayer.on(AudioPlayerStatus.Idle, () => {
       if (this.#active) {
-        this.playNext();
+        this.handleTrackFinished();
       }
     });
     this.#audioPlayer.on("error", (error) => {
@@ -77,6 +78,92 @@ export class Playback {
     return item;
   }
 
+  dequeue(index: number): MediaItem {
+    const { removed, wasCurrent, successor } = this.queue.removeAt(index);
+    console.info(
+      `[queue] dequeued position=${index + 1} id=${removed.id} title=${JSON.stringify(removed.title)}`,
+    );
+
+    if (this.#active && wasCurrent) {
+      if (successor) {
+        this.play(successor);
+      } else {
+        this.disconnect("current item dequeued without a successor");
+      }
+    }
+
+    return removed;
+  }
+
+  togglePause(): "paused" | "resumed" {
+    if (!this.#active) {
+      throw new Error("nothing is playing");
+    }
+
+    if (this.#audioPlayer.state.status === AudioPlayerStatus.Playing) {
+      if (!this.#audioPlayer.pause()) {
+        throw new Error("could not pause playback");
+      }
+      console.info("[playback] paused");
+      return "paused";
+    }
+
+    if (this.#audioPlayer.state.status === AudioPlayerStatus.Paused) {
+      if (!this.#audioPlayer.unpause()) {
+        throw new Error("could not resume playback");
+      }
+      console.info("[playback] resumed");
+      return "resumed";
+    }
+
+    throw new Error(
+      `cannot pause playback while it is ${this.#audioPlayer.state.status}`,
+    );
+  }
+
+  toggleLoop(): boolean {
+    this.queue.current();
+    this.#loop = !this.#loop;
+    console.info(`[playback] loop ${this.#loop ? "enabled" : "disabled"}`);
+    return this.#loop;
+  }
+
+  shuffle(): number {
+    const count = this.queue.shuffleUpcoming();
+    console.info(`[queue] shuffled upcoming=${count}`);
+    return count;
+  }
+
+  next(): MediaItem | undefined {
+    if (!this.#active) {
+      throw new Error("nothing is playing");
+    }
+
+    return this.advance();
+  }
+
+  previous(): MediaItem {
+    if (!this.#active) {
+      throw new Error("nothing is playing");
+    }
+
+    const item = this.queue.previous();
+    if (!item) {
+      throw new Error("already at the beginning of the playlist");
+    }
+
+    this.play(item);
+    return item;
+  }
+
+  clear(): number {
+    const count = this.queue.clear();
+    this.#loop = false;
+    this.disconnect("playlist cleared");
+    console.info(`[queue] cleared count=${count}`);
+    return count;
+  }
+
   disconnectIfAlone(): void {
     const channelId = this.#connection?.joinConfig.channelId;
     const channel = channelId
@@ -93,14 +180,24 @@ export class Playback {
     }
   }
 
-  private playNext(): void {
-    const item = this.queue.next();
-    if (!item) {
-      this.disconnect("queue exhausted");
+  private handleTrackFinished(): void {
+    if (this.#loop) {
+      this.play(this.queue.current());
       return;
     }
 
+    this.advance();
+  }
+
+  private advance(): MediaItem | undefined {
+    const item = this.queue.next();
+    if (!item) {
+      this.disconnect("queue exhausted");
+      return undefined;
+    }
+
     this.play(item);
+    return item;
   }
 
   private disconnect(reason: string): void {
