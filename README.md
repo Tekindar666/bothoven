@@ -13,7 +13,20 @@ A private, single-guild Discord music bot written in TypeScript.
 
 ## Setup
 
-Install Node.js, pnpm, uv, and FFmpeg. Then:
+Install Node.js, pnpm, uv, and FFmpeg. On Arch Linux, install FFmpeg with:
+
+```sh
+sudo pacman -S ffmpeg
+```
+
+Check that it is available on your `PATH`:
+
+```sh
+ffmpeg -version
+which ffmpeg
+```
+
+Then install the project dependencies and create your environment file:
 
 ```sh
 pnpm install
@@ -28,7 +41,8 @@ DISCORD_TOKEN=
 DISCORD_APPLICATION_ID=
 DISCORD_GUILD_ID=
 YTDL_BINARY=.venv/bin/yt-dlp
-FFMPEG_BINARY=/absolute/path/to/ffmpeg
+# Optional: leave unset to use ffmpeg from PATH, or set its installed path
+# FFMPEG_BINARY=/usr/bin/ffmpeg
 MUSIC_CACHE_DIR=.cache/music
 MUSIC_CACHE_MAX_MB=2048
 ```
